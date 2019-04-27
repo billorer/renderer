@@ -7,55 +7,61 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.UI;
+using System.Diagnostics;
 
 namespace Renderer2
 {
     internal class Device
     {
         private byte[] backBuffer;
-        private WriteableBitmap bmp;
+        private WriteableBitmap bitmap;
 
-        public Device(WriteableBitmap bmp)
+        public Device(WriteableBitmap bitmap)
         {
-            this.bmp = bmp;
-            // the back buffer size is equal to the number of pixels to draw
-            // on screen (width*height) * 4 (R,G,B & Alpha values). 
-            backBuffer = new byte[bmp.PixelWidth * bmp.PixelHeight * 4];
+            this.bitmap = bitmap;
+            // we allocate the size for the buffer, the 4 comes from the 4 color values (RGBA (alpha))
+            backBuffer = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
         }
 
-        // This method is called to clear the back buffer with a specific color
-        public void Clear(byte r, byte g, byte b, byte a)
+        /// <summary>
+        /// It goes through the backBuffer array and paints it to black (pixel by pixel)
+        /// </summary>
+        public void PaintBackBufferBlack()
         {
-            for (var index = 0; index < backBuffer.Length; index += 4)
+            for (int index = 0; index < backBuffer.Length; index += 4)
             {
-                // BGRA is used by Windows instead by RGBA in HTML5
-                backBuffer[index] = b;
-                backBuffer[index + 1] = g;
-                backBuffer[index + 2] = r;
-                backBuffer[index + 3] = a;
+                // black color (0 0 0 255)
+                backBuffer[index] = 0;
+                backBuffer[index + 1] = 0;
+                backBuffer[index + 2] = 0;
+                backBuffer[index + 3] = 255;
             }
         }
 
-        // Once everything is ready, we can flush the back buffer
-        // into the front buffer. 
+        /// <summary>
+        /// It converts bitmap to a writeable one
+        /// </summary>
         public void Present()
         {
-            using (var stream = bmp.PixelBuffer.AsStream())
+            // copy the image to the WriteableBitmap's pixel backBuffer 
+            using (Stream stream = bitmap.PixelBuffer.AsStream())
             {
-                // writing our byte[] back buffer into our WriteableBitmap stream
                 stream.Write(backBuffer, 0, backBuffer.Length);
             }
             // request a redraw of the entire bitmap
-            bmp.Invalidate();
+            bitmap.Invalidate();
         }
 
-        // Called to put a pixel on screen at a specific X,Y coordinates
-        public void PutPixel(int x, int y, Color color)
+        /// <summary>
+        /// Places a pixel on the given x,y coordinates
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="color"></param>
+        public void PlacePixelinBitmap(int x, int y, Color color)
         {
-            // As we have a 1-D Array for our back buffer
-            // we need to know the equivalent cell in 1-D based
-            // on the 2D coordinates on screen
-            var index = (x + y * bmp.PixelWidth) * 4;
+            //  calculate the index, where we should place the pixel, the pixel gonna have a color
+            int index = (x + y * bitmap.PixelWidth) * 4;
 
             backBuffer[index] = color.B;
             backBuffer[index + 1] = color.G;
@@ -63,57 +69,113 @@ namespace Renderer2
             backBuffer[index + 3] = color.A;
         }
 
-        // Project takes some 3D coordinates and transform them
-        // in 2D coordinates using the transformation matrix
-        public Vector2 Project(Vector3 coord, Matrix4x4 transMat)
+        /// <summary>
+        /// With the help of the tranformation matrix we can create the 2d representation of a 3d point (vertex)
+        /// </summary>
+        /// <param name="coord"></param>
+        /// <param name="transMat"></param>
+        /// <returns></returns>
+        private Vector2 ConvertVec3toVec2(Vector3 coord, Matrix4x4 transMat)
         {
-            // transforming the coordinates
-            var point = Vector3.TransformNormal(coord, transMat);
-            // The transformed coordinates will be based on coordinate system
-            // starting on the center of the screen. But drawing on screen normally starts
-            // from top left. We then need to transform them again to have x:0, y:0 on top left.
-            var x = point.X * bmp.PixelWidth + bmp.PixelWidth / 2.0f;
-            var y = -point.Y * bmp.PixelHeight + bmp.PixelHeight / 2.0f;
+            Vector3 point = Vector3.TransformNormal(coord, transMat);
+            // we divide it by two so we place it to the center of the screen -> img.width / 2 : img.height / 2
+            float x = point.X * bitmap.PixelWidth + bitmap.PixelWidth / 2.0f;
+            float y = -point.Y * bitmap.PixelHeight + bitmap.PixelHeight / 2.0f;
             return (new Vector2(x, y));
         }
 
-        // DrawPoint calls PutPixel but does the clipping operation before
-        public void DrawPoint(Vector2 point)
+        /// <summary>
+        /// It invites the PlacePixelinBitmap
+        /// </summary>
+        /// <param name="point"></param>
+        public void DrawVertex(Vector2 point)
         {
-            // Clipping what's visible on screen
-            if (point.X >= 0 && point.Y >= 0 && point.X < bmp.PixelWidth && point.Y < bmp.PixelHeight)
+            // Check if the vertex will be visible in the camera
+            if (point.X >= 0 && point.Y >= 0 && point.X < bitmap.PixelWidth && point.Y < bitmap.PixelHeight)
             {
-                // Drawing a yellow point
-                PutPixel((int)point.X, (int)point.Y, Colors.Yellow);
+                PlacePixelinBitmap((int)point.X, (int)point.Y, Colors.Red);
             }
         }
 
-        // The main method of the engine that re-compute each vertex projection
-        // during each frame
+        /// <summary>
+        /// It connects two vertexes, it is called recursively
+        /// </summary>
+        /// <param name="p1"></param>
+        /// <param name="p2"></param>
+        public void ConnectVertexes(Vector2 p1, Vector2 p2)
+        {
+            double distance = (p1 - p2).Length();
+
+            // The distance is less than a pixel, no need to connect the vertexes
+            if (distance < 2)
+                return;
+
+            Vector2 middleP = p1 + (p2 - p1) / 2;
+            DrawVertex(middleP);
+
+            ConnectVertexes(p1, middleP);
+            ConnectVertexes(middleP, p2);
+        }
+
+
+        public void ConnectVertexesBresenham(Vector2 point0, Vector2 point1)
+        {
+            int x0 = (int)point0.X;
+            int y0 = (int)point0.Y;
+            int x1 = (int)point1.X;
+            int y1 = (int)point1.Y;
+
+            var dx = Math.Abs(x1 - x0);
+            var dy = Math.Abs(y1 - y0);
+            var sx = (x0 < x1) ? 1 : -1;
+            var sy = (y0 < y1) ? 1 : -1;
+            var err = dx - dy;
+
+            while (true)
+            {
+                DrawVertex(new Vector2(x0, y0));
+
+                if ((x0 == x1) && (y0 == y1)) break;
+                var e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x0 += sx; }
+                if (e2 < dx) { err += dx; y0 += sy; }
+            }
+        }
+
+        /// <summary>
+        /// Params -> the number of parameters can be 0 or infinity
+        /// </summary>
+        /// <param name="camera"></param>
+        /// <param name="meshes"></param>
         public void Render(Camera camera, params Mesh[] meshes)
         {
-            // To understand this part, please read the prerequisites resources
-            var viewMatrix = Matrix4x4.CreateLookAt(camera.Position, camera.Target, Vector3.UnitY);
-            var projectionMatrix = Matrix4x4.CreatePerspective(3, 4, 0.4f, 10.0f);
-
+            // The camera will look at a direction horizontally (Vector3.UnitY) -> cameraMatrix
+            Matrix4x4 viewMatrix = Matrix4x4.CreateLookAt(camera.Position, camera.Target, Vector3.UnitY);
+            // Debug.WriteLine(viewMatrix);
+            Matrix4x4 projectionMatrix = Matrix4x4.CreatePerspective(25, 25, 1, 2);
+            // Debug.WriteLine(viewMatrix);
             foreach (Mesh mesh in meshes)
             {
-                // Beware to apply rotation before translation
-                var worldMatrix = Matrix4x4.CreateFromYawPitchRoll(mesh.Rotation.Y, mesh.Rotation.X, mesh.Rotation.Z) * Matrix4x4.CreateTranslation(mesh.Position);
+                Matrix4x4 worldMatrix = Matrix4x4.CreateFromYawPitchRoll(mesh.Rotation.Y, mesh.Rotation.X, mesh.Rotation.Z) * Matrix4x4.CreateTranslation(mesh.Position);
+                Matrix4x4 transformMatrix = worldMatrix * viewMatrix * projectionMatrix;
 
-                var transformMatrix = worldMatrix * viewMatrix * projectionMatrix;
-
-                foreach (var vertex in mesh.Vertices)
+                // drawing triangles
+                foreach (Face face in mesh.Faces)
                 {
-                    // First, we project the 3D coordinates into the 2D space
-                    var point = Project(vertex, transformMatrix);
-                    // Then we can draw on screen
-                    DrawPoint(point);
+                    Vector3 vertexA = mesh.Vertexes[face.A];
+                    Vector3 vertexB = mesh.Vertexes[face.B];
+                    Vector3 vertexC = mesh.Vertexes[face.C];
+
+                    Vector2 pixelA = ConvertVec3toVec2(vertexA, transformMatrix);
+                    Vector2 pixelB = ConvertVec3toVec2(vertexB, transformMatrix);
+                    Vector2 pixelC = ConvertVec3toVec2(vertexC, transformMatrix);
+
+                    ConnectVertexesBresenham(pixelA, pixelB);
+                    ConnectVertexesBresenham(pixelB, pixelC);
+                    ConnectVertexesBresenham(pixelC, pixelA);
                 }
+
             }
         }
-
-
-
     }
 }
