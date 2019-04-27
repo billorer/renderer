@@ -34,11 +34,10 @@ namespace Renderer2
 
         private void onPageLoad(object sender, RoutedEventArgs e)
         {
-            // Choose the back buffer resolution here
             WriteableBitmap bmp = new WriteableBitmap(1280, 750);
             device = new Device(bmp);
 
-            // Our Image XAML control
+            // Connect with the image object on xaml
             frontBuffer.Source = bmp;
 
             camera = new Camera();
@@ -70,20 +69,17 @@ namespace Renderer2
             camera.Position = new Vector3(0, 0, 10.0f);
             camera.Target = Vector3.Zero;
 
-            // Registering to the XAML rendering loop
+            // Registering to the XAML rendering loop, its an event handler
             CompositionTarget.Rendering += renderingLoop;
         }
 
         private void renderingLoop(object sender, object e)
         {
             device.PaintBackBufferBlack();
-
-            // rotating slightly the cube during each frame rendered
             cubeMesh.Rotation = new Vector3(cubeMesh.Rotation.X + 0.01f, cubeMesh.Rotation.Y + 0.01f, cubeMesh.Rotation.Z);
-
-            // Doing the various matrix operations
             device.Render(camera, cubeMesh);
-            // Flushing the back buffer into the front buffer
+
+            // copy back buffer into fron buffer
             device.Present();
         }
     }
