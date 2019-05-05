@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace Renderer2
 {
@@ -22,10 +17,10 @@ namespace Renderer2
         public Vector3 Rotation { get; set; }
         public Vector3 Scaling { get; set; }
         public Vector3[] Vertexes { get; private set; }
-        public Mesh(string name, int verticesCount, int facesCount)
+        public Mesh(string name, int vertexCounter, int faceCounter)
         {
-            Vertexes = new Vector3[verticesCount];
-            Faces = new Face[facesCount];
+            Vertexes = new Vector3[vertexCounter];
+            Faces = new Face[faceCounter];
             Name = name;
         }
     }
