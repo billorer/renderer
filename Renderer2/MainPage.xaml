@@ -10,5 +10,6 @@
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Image x:Name="frontBuffer"/>
+        <TextBlock x:Name="fpsTextBox" HorizontalAlignment="Left" Margin="0,10,0,0" Text="TextBlock" TextWrapping="Wrap" VerticalAlignment="Top" Foreground="Red" Height="124" Width="379" FontSize="50"/>
     </Grid>
 </Page>
