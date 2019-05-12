@@ -27,36 +27,55 @@ namespace Renderer2
                 else if (uvCount == 2)
                     vertexJumper = 10;
 
-                // we do not need all of the vertexes since babylon gives an extra detail based on the uvCount
-                int vertexCounter = meshVertexes.Count / vertexJumper;
-                int faceCounter = meshFaces.Count / 3; // triangles
-                Mesh mesh = new Mesh(jsonObject.meshes[meshIndex].name.Value, vertexCounter, faceCounter);
-
-                for (int index = 0; index < vertexCounter; index++)
-                {
-                    float x = (float)meshVertexes[index * vertexJumper].Value;
-                    float y = (float)meshVertexes[index * vertexJumper + 1].Value;
-                    float z = (float)meshVertexes[index * vertexJumper + 2].Value;
-                    mesh.Vertexes[index] = new Vector3(x, y, z);
-                }
-
-                for (int index = 0; index < faceCounter; index++)
-                {
-                    int A = (int)meshFaces[index * 3].Value;
-                    int B = (int)meshFaces[index * 3 + 1].Value;
-                    int C = (int)meshFaces[index * 3 + 2].Value;
-                    mesh.Faces[index] = new Face { A = A, B = B, C = C };
-                }
-
-                var position = jsonObject.meshes[meshIndex].position;
-                var rotation = jsonObject.meshes[meshIndex].rotation;
-                var scaling = jsonObject.meshes[meshIndex].scaling;
-                mesh.Position = new Vector3((float)position[0].Value, (float)position[1].Value, (float)position[2].Value);
-                mesh.Rotation = new Vector3((float)rotation[0].Value, (float)rotation[1].Value, (float)rotation[2].Value);
-                mesh.Scaling = new Vector3((float)scaling[0].Value, (float)scaling[1].Value, (float)scaling[2].Value);
-                meshes.Add(mesh);
+                meshes.Add(CreateMeshFromData(meshVertexes, meshFaces, vertexJumper, jsonObject.meshes[meshIndex].name.Value, jsonObject.meshes[meshIndex]));
             }
             return meshes.ToArray();
+        }
+
+        private static Mesh CreateMeshFromData(dynamic meshVertexes, dynamic meshFaces, int vertexJumper, string meshName, dynamic meshParameters)
+        {
+            // we do not need all of the vertexes since babylon gives an extra detail based on the uvCount
+            int vertexCounter = meshVertexes.Count / vertexJumper;
+            int faceCounter = meshFaces.Count / 3; // triangles
+
+            Mesh mesh = new Mesh(meshName, vertexCounter, faceCounter);
+
+            mesh.Vertexes = GetMeshVertexes(vertexCounter, vertexJumper, meshVertexes);
+            mesh.Faces = GetMeshFaces(faceCounter, meshFaces);
+
+            var position = meshParameters.position;
+            var rotation = meshParameters.rotation;
+            var scaling = meshParameters.scaling;
+            mesh.Position = new Vector3((float)position[0].Value, (float)position[1].Value, (float)position[2].Value);
+            mesh.Rotation = new Vector3((float)rotation[0].Value, (float)rotation[1].Value, (float)rotation[2].Value);
+            mesh.Scaling = new Vector3((float)scaling[0].Value, (float)scaling[1].Value, (float)scaling[2].Value);
+            return mesh;
+        }
+
+        private static Vector3[] GetMeshVertexes(int vertexCounter, int vertexJumper, dynamic meshVertexes)
+        {
+            Vector3[] vertexes = new Vector3[vertexCounter];
+            for (int index = 0; index < vertexCounter; index++)
+            {
+                float x = (float)meshVertexes[index * vertexJumper].Value;
+                float y = (float)meshVertexes[index * vertexJumper + 1].Value;
+                float z = (float)meshVertexes[index * vertexJumper + 2].Value;
+                vertexes[index] = new Vector3(x, y, z);
+            }
+            return vertexes;
+        }
+
+        private static Face[] GetMeshFaces(int faceCounter, dynamic meshFaces)
+        {
+            Face[] faces = new Face[faceCounter];
+            for (int index = 0; index < faceCounter; index++)
+            {
+                int A = (int)meshFaces[index * 3].Value;
+                int B = (int)meshFaces[index * 3 + 1].Value;
+                int C = (int)meshFaces[index * 3 + 2].Value;
+                faces[index] = new Face { A = A, B = B, C = C };
+            }
+            return faces;
         }
     }
 }

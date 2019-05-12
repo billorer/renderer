@@ -16,7 +16,7 @@ namespace Renderer2
         public Vector3 Position { get; set; }
         public Vector3 Rotation { get; set; }
         public Vector3 Scaling { get; set; }
-        public Vector3[] Vertexes { get; private set; }
+        public Vector3[] Vertexes { get; set; }
         public Mesh(string name, int vertexCounter, int faceCounter)
         {
             Vertexes = new Vector3[vertexCounter];
