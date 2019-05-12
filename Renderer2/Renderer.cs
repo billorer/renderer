@@ -138,7 +138,6 @@ namespace Renderer2
                 Matrix4x4 worldMatrix = Matrix4x4.CreateScale(mesh.Scaling) * Matrix4x4.CreateFromYawPitchRoll(mesh.Rotation.Y, mesh.Rotation.X, mesh.Rotation.Z) * Matrix4x4.CreateTranslation(mesh.Position);
                 // Matrix4x4 worldMatrix = Matrix4x4.CreateWorld(mesh.Position, new Vector3(1, 0, 1), new Vector3(0, 1, 0));
                 Matrix4x4 transformMatrix = worldMatrix * viewMatrix * projectionMatrix;
-                var tasks = new List<Task>();
                 foreach (Face face in mesh.Faces)
                 {
                     Vector3 vertexA = mesh.Vertexes[face.A];

@@ -6,17 +6,22 @@ using Windows.UI.Xaml.Media.Imaging;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.UI;
+using System.Diagnostics;
 
 namespace Renderer2
 {
     internal class ParallelRenderer
     {
         private byte[] backBuffer;
+        private byte[] backBuffer1;
+        private byte[] backBuffer2;
+        private byte[] backBuffer3;
+        private byte[] backBuffer4;
         private WriteableBitmap bitmap;
 
         private readonly int bitmapWidth;
         private readonly int bitmapHeight;
-        private object[] lockBuffer;
+        //private object[] lockBuffer;
 
         public ParallelRenderer(WriteableBitmap bitmap)
         {
@@ -25,12 +30,17 @@ namespace Renderer2
             bitmapHeight = bitmap.PixelHeight;
 
             // we allocate the size for the buffer, the 4 comes from the 4 color values (RGBA (alpha))
+            //backBuffer1 = new byte[bitmapWidth * bitmapHeight * 4];
+            //backBuffer2 = new byte[bitmapWidth * bitmapHeight * 4];
+            //backBuffer3 = new byte[bitmapWidth * bitmapHeight * 4];
+            //backBuffer4 = new byte[bitmapWidth * bitmapHeight * 4];
             backBuffer = new byte[bitmapWidth * bitmapHeight * 4];
-            lockBuffer = new object[bitmapWidth * bitmapHeight];
-            for (int index = 0; index < lockBuffer.Length; index++)
-            {
-                lockBuffer[index] = new object();
-            }
+
+            //lockBuffer = new object[bitmapWidth * bitmapHeight];
+            //for (int index = 0; index < lockBuffer.Length; index++)
+            //{
+            //    lockBuffer[index] = new object();
+            //}
         }
 
         /// <summary>
@@ -68,18 +78,18 @@ namespace Renderer2
         /// <param name="x"></param>
         /// <param name="y"></param>
         /// <param name="color"></param>
-        public void PlacePixelinBitmap(int x, int y, Color color)
+        public void PlacePixelinBitmap(int x, int y, Color color, byte[] backBuffer)
         {
             //  calculate the index, where we should place the pixel, the pixel gonna have a color
             int index = (x + y * bitmapWidth);
             int index4 = index * 4;
-            lock (lockBuffer[index])
-            {
+            //lock (lockBuffer[index])
+            //{
                 backBuffer[index4] = color.B;
                 backBuffer[index4 + 1] = color.G;
                 backBuffer[index4 + 2] = color.R;
                 backBuffer[index4 + 3] = color.A;
-            }
+            //}
         }
 
         /// <summary>
@@ -102,22 +112,22 @@ namespace Renderer2
         /// </summary>
         /// <param name="p1"></param>
         /// <param name="p2"></param>
-        public void ConnectVertexes(Vector2 p1, Vector2 p2)
-        {
-            double distance = (p1 - p2).Length();
+        //public void ConnectVertexes(Vector2 p1, Vector2 p2)
+        //{
+        //    double distance = (p1 - p2).Length();
 
-            // The distance is less than a pixel, no need to connect the vertexes
-            if (distance < 2)
-                return;
+        //    // The distance is less than a pixel, no need to connect the vertexes
+        //    if (distance < 2)
+        //        return;
 
-            Vector2 middleP = p1 + (p2 - p1) / 2;
-            // Check if the vertex will be visible in the camera, then put the pixel in bitmap
-            if (middleP.X >= 0 && middleP.Y >= 0 && middleP.X < bitmapWidth && middleP.Y < bitmapHeight)
-                PlacePixelinBitmap((int)middleP.X, (int)middleP.Y, Colors.Red);
+        //    Vector2 middleP = p1 + (p2 - p1) / 2;
+        //    // Check if the vertex will be visible in the camera, then put the pixel in bitmap
+        //    if (middleP.X >= 0 && middleP.Y >= 0 && middleP.X < bitmapWidth && middleP.Y < bitmapHeight)
+        //        PlacePixelinBitmap((int)middleP.X, (int)middleP.Y, Colors.Red);
 
-            ConnectVertexes(p1, middleP);
-            ConnectVertexes(middleP, p2);
-        }
+        //    ConnectVertexes(p1, middleP);
+        //    ConnectVertexes(middleP, p2);
+        //}
 
         /// <summary>
         /// Implemented according to the Bresenham algorithm
@@ -125,7 +135,7 @@ namespace Renderer2
         /// </summary>
         /// <param name="from"></param>
         /// <param name="to"></param>
-        public void ConnectVertexesBresenham(Vector2 from, Vector2 to)
+        public void ConnectVertexesBresenham(Vector2 from, Vector2 to, byte[] currentBuffer)
         {
             int fromX = (int)from.X;
             int fromY = (int)from.Y;
@@ -145,7 +155,7 @@ namespace Renderer2
             {
                 // Check if the vertex will be visible in the camera, then put the pixel in bitmap
                 if (fromX >= 0 && fromY >= 0 && fromX < bitmapWidth && fromY < bitmapHeight)
-                    PlacePixelinBitmap(fromX, fromY, Colors.Red);
+                    PlacePixelinBitmap(fromX, fromY, Colors.Red, currentBuffer);
                 if ((fromX == toX) && (fromY == toY)) break;
                 int error2 = 2 * error;
                 if (error2 > -deltaY) { error -= deltaY; fromX += sx; }
@@ -166,15 +176,15 @@ namespace Renderer2
             Matrix4x4 projectionMatrix = Matrix4x4.CreatePerspective(15, 15, 1, 2);
             // Debug.WriteLine(viewMatrix); 
 
+            List<Task> tasks = new List<Task>();
             foreach (Mesh mesh in meshes)
             {
                 Matrix4x4 worldMatrix = Matrix4x4.CreateScale(mesh.Scaling) * Matrix4x4.CreateFromYawPitchRoll(mesh.Rotation.Y, mesh.Rotation.X, mesh.Rotation.Z) * Matrix4x4.CreateTranslation(mesh.Position);
                 // Matrix4x4 worldMatrix = Matrix4x4.CreateWorld(mesh.Position, new Vector3(1, 0, 1), new Vector3(0, 1, 0));
                 Matrix4x4 transformMatrix = worldMatrix * viewMatrix * projectionMatrix;
-                var tasks = new List<Task>();
-                foreach (Face face in mesh.Faces)
+                foreach(Face face in mesh.Faces)
                 {
-                    var th = new Task(() =>
+                    tasks.Add(new Task(() =>
                     {
                         Vector3 vertexA = mesh.Vertexes[face.A];
                         Vector3 vertexB = mesh.Vertexes[face.B];
@@ -184,18 +194,15 @@ namespace Renderer2
                         Vector2 pixelB = ConvertVec3toVec2(vertexB, transformMatrix);
                         Vector2 pixelC = ConvertVec3toVec2(vertexC, transformMatrix);
 
-                        ConnectVertexesBresenham(pixelB, pixelC);
-                        ConnectVertexesBresenham(pixelC, pixelA);
-                        ConnectVertexesBresenham(pixelA, pixelB);
-                    });
-                    th.Start();
-                    tasks.Add(th);
-                    if (tasks.Count == 500)
-                    {
-                        await Task.WhenAll(tasks.ToArray());
-                        tasks = new List<Task>();
-                    }
+                        ConnectVertexesBresenham(pixelB, pixelC, backBuffer);
+                        ConnectVertexesBresenham(pixelC, pixelA, backBuffer);
+                        ConnectVertexesBresenham(pixelA, pixelB, backBuffer);
+                    }));
                 }
+
+                foreach (Task t in tasks)
+                    t.Start();
+                await Task.WhenAll(tasks.ToArray());
             }
         }
     }

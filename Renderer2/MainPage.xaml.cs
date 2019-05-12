@@ -18,17 +18,19 @@ namespace Renderer2
         private Camera camera;
 
         private DateTime previousDate;
+        private int framesRendered;
+        private int currentFPS;
 
         public MainPage()
         {
             this.InitializeComponent();
         }
 
-        private async void onPageLoad(object sender, RoutedEventArgs e)
+        private async void OnPageLoad(object sender, RoutedEventArgs e)
         {
             WriteableBitmap bmp = new WriteableBitmap(1280, 750);
-            renderer = new Renderer(bmp);
-
+            paralellRenderer = new ParallelRenderer(bmp);
+            //renderer = new Renderer(bmp);
             // Connect with the image object on xaml
             frontBuffer.Source = bmp;
 
@@ -38,24 +40,27 @@ namespace Renderer2
 
             meshes = await Utils.LoadJSONFileAsync(@"Babylon\ember.babylon");
             // Registering to the XAML rendering loop, its an event handler
-            CompositionTarget.Rendering += renderingLoop;
+            CompositionTarget.Rendering += OnRenderingLoop;
         }
 
-        private async void renderingLoop(object sender, object e)
+        private async void OnRenderingLoop(object sender, object e)
         {
-            DateTime currentDate = DateTime.Now;
-            double currentFps = 1000.0 / (currentDate - previousDate).TotalMilliseconds;
-            previousDate = currentDate;
+            framesRendered++;
+            if ((DateTime.Now - previousDate).TotalSeconds >= 1)
+            {
+                currentFPS = framesRendered;
+                framesRendered = 0;
+                previousDate = DateTime.Now;
+            }
 
-            renderer.PaintBackBufferBlack();
+            paralellRenderer.PaintBackBufferBlack();
             foreach (Mesh mesh in meshes)
             {
                 mesh.Rotation = new Vector3(mesh.Rotation.X, mesh.Rotation.Y - 0.01f, mesh.Rotation.Z);
             }
-            // await device.Render(camera, meshes);
-            renderer.Render(camera, meshes);
-            renderer.Present();
-            fpsTextBox.Text = string.Format("{0:0.000} fps", currentFps);
+            await paralellRenderer.Render(camera, meshes);
+            paralellRenderer.Present();
+            fpsTextBox.Text = string.Format("{0:0.000} fps", currentFPS);
         }
     }
 }
